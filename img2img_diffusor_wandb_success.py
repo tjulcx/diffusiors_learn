@@ -100,23 +100,23 @@ print('latents_sitting_flat_size',latents_sitting_flat.size())
 reduced_standing = reduce_latents_to_2D(latents_standing_flat)
 reduced_sitting = reduce_latents_to_2D(latents_sitting_flat)
 
-# 合并数据并生成标签
-combined_data = np.vstack((reduced_standing, reduced_sitting))
-labels = ["Standing"] * reduced_standing.shape[0] + ["Sitting"] * reduced_sitting.shape[0]
+# # 合并数据并生成标签
+# combined_data = np.vstack((reduced_standing, reduced_sitting))
+# labels = ["Standing"] * reduced_standing.shape[0] + ["Sitting"] * reduced_sitting.shape[0]
 
-# 创建数据表
-table = wandb.Table(data=combined_data.tolist(), columns=["t2I Standing", "t2I Sitting"])
-table.add_column("Label", labels)
+# # 创建数据表
+# table = wandb.Table(data=combined_data.tolist(), columns=["t2I Standing", "t2I Sitting"])
+# table.add_column("Label", labels)
 
-# 记录降维后的数据到 W&B
-wandb.log({
-    "2D t-SNE Scatter Plot": wandb.plot.scatter(
-        table,
-        "t2I Standing",
-        "t2I Sitting",
-        title="T2I Standing vs Sitting Latents"
-    )
-})
+# # 记录降维后的数据到 W&B
+# wandb.log({
+#     "2D t-SNE Scatter Plot": wandb.plot.scatter(
+#         table,
+#         "t2I Standing",
+#         "t2I Sitting",
+#         title="T2I Standing vs Sitting Latents"
+#     )
+# })
 # Calculate mean (centroid)
 mean_standing = torch.mean(latents_standing, dim=0)
 mean_sitting = torch.mean(latents_sitting, dim=0)
@@ -170,23 +170,39 @@ filtered_latents_sitting_flat = latents_sitting.view(filtered_latents_sitting.si
 filtered_reduced_standing = reduce_latents_to_2D(filtered_latents_standing_flat)
 filtered_reduced_sitting = reduce_latents_to_2D(filtered_latents_sitting_flat)
 
+
+plt.figure(figsize=(8, 6))
+plt.scatter(filtered_reduced_standing[:, 0], filtered_reduced_standing[:, 1], label='Standing', alpha=0.5)
+plt.scatter(filtered_reduced_sitting[:, 0], filtered_reduced_sitting[:, 1], label='Sitting', alpha=0.5)
+# plt.scatter(reduce_mean_standing[0,0].cpu().numpy(), reduce_mean_standing[0,1].cpu().numpy(), c='red', marker='X', s=200, label='Mean Standing')
+# plt.scatter(reduce_mean_sitting[0,0].cpu().numpy(), reduce_mean_sitting[0,1].cpu().numpy(), c='blue', marker='X', s=200, label='Mean Sitting')
+plt.title("filter_standing_to_sitting t-SNE 2D Scatter Plot with Means")
+plt.xlabel("t-SNE 1")
+plt.ylabel("t-SNE 2")
+plt.legend()
+plt.grid()
+
+# 保存图像并上传到 W&B
+plt.savefig("filter_sitting_and_standing_tsne_plot.png")
+wandb.log({"filter_sitting_and_standing t-SNE Plot": wandb.Image("filter_sitting_and_standing_tsne_plot.png")})
+
 # 合并数据并生成标签
-filtered_combined_data = np.vstack((filtered_reduced_standing, filtered_reduced_sitting))
-filtered_labels = ["Standing"] * filtered_reduced_standing.shape[0] + ["Sitting"] * filtered_reduced_sitting.shape[0]
+# filtered_combined_data = np.vstack((filtered_reduced_standing, filtered_reduced_sitting))
+# filtered_labels = ["Standing"] * filtered_reduced_standing.shape[0] + ["Sitting"] * filtered_reduced_sitting.shape[0]
 
-# 创建数据表
-filter_table = wandb.Table(data=filtered_combined_data.tolist(), columns=["filter t2I Standing", "filter t2I Sitting"])
-filter_table.add_column("filtered_labels", filtered_labels)
+# # 创建数据表
+# filter_table = wandb.Table(data=filtered_combined_data.tolist(), columns=["filter t2I Standing", "filter t2I Sitting"])
+# filter_table.add_column("filtered_labels", filtered_labels)
 
-# 记录降维后的数据到 W&B
-wandb.log({
-    "filter standing-> sitting 2D t-SNE Scatter Plot": wandb.plot.scatter(
-        filter_table,
-        "t2I Standing",
-        "t2I Sitting",
-        title="Filter T2I Standing vs Sitting Latents"
-    )
-})
+# # 记录降维后的数据到 W&B
+# wandb.log({
+#     "filter standing-> sitting 2D t-SNE Scatter Plot": wandb.plot.scatter(
+#         filter_table,
+#         "t2I Standing",
+#         "t2I Sitting",
+#         title="Filter T2I Standing vs Sitting Latents"
+#     )
+# })
 # Filter direction vector
 direction_vector_filtered = direction_vector.clone()
 direction_vector_filtered[~final_mask] = 0
@@ -195,6 +211,9 @@ direction_vector_filtered[~final_mask] = 0
 direction_label = "From standing to sitting"
 print(f"Direction vector {direction_label} (after filtering):")
 print(direction_vector_filtered)
+
+
+
 
 # Add the direction vector to the initial image's latent vector
 init_image_latent = img2img_pipe.image_processor.preprocess(init_image_tensor).to(device)
