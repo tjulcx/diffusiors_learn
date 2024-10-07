@@ -11,21 +11,21 @@ import numpy as np
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 from sklearn.manifold import TSNE
 # Initialize WandB
-wandb.init(project="dog-image-generation", name="local_standing_to_sitting_data_analysize")
+wandb.init(project="img2img-dog-image-generation", name="standing_to_sitting_data_analysize")
 
 
 class Config:
     def __init__(self):
-        self.sampleTimes = 5
+        self.sampleTimes = 30
         self.target_prompt = "A photo of a sitting dog"
         self.source_prompt = "A photo of a standing dog"
         self.model_name = "standing_to_sitting"
         self.pretrained_model = "sd-legacy/stable-diffusion-v1-5"
-        self.direction_weight = 0
+        self.direction_weight = 20
         self.i2i_guidance_scale = 7.5
         self.image_path = "https://elaine3240.wordpress.com/wp-content/uploads/2019/06/e69fb4e78aac-e9bb91e889b2.jpg"
         self.t2i_inference_steps = 50
-        self.i2i_inference_steps = 350
+        self.i2i_inference_steps = 50
 
 
 config = Config()
@@ -120,7 +120,8 @@ reduced_sitting = reduce_latents_to_2D(latents_sitting_flat)
 # Calculate mean (centroid)
 mean_standing = torch.mean(latents_standing, dim=0)
 mean_sitting = torch.mean(latents_sitting, dim=0)
-
+print('mean_standing',mean_standing)
+print('mean_sitting',mean_sitting)
 
 reduce_mean_standing = mean_standing.view(1, -1)
 reduce_mean_sitting = mean_sitting.view(1, -1)
@@ -144,6 +145,7 @@ wandb.log({"origin_sitting_and_standing t-SNE Plot": wandb.Image("origin_sitting
 
 # Calculate direction vector (from standing to sitting)
 direction_vector = mean_sitting - mean_standing
+print(f"Direction vector (from standing to sitting): {direction_vector}")
 
 # Calculate the variability within each class (standard deviation)
 std_standing = torch.std(latents_standing, dim=0)
@@ -157,7 +159,8 @@ class_within_threshold_standing = std_standing < 0.1
 class_within_threshold_sitting = std_sitting < 0.1
 
 # Create mask to retain high inter-class variability and zero out low intra-class variability
-final_mask = (inter_class_variability > 0.1) & ~(class_within_threshold_standing | class_within_threshold_sitting)
+final_mask = (inter_class_variability > 0.05) & ~(class_within_threshold_standing | class_within_threshold_sitting)
+print(f"Number of dimensions after filtering: {final_mask.sum()}")
 
 # 应用过滤
 filtered_latents_standing = latents_standing[:, final_mask]
@@ -223,7 +226,7 @@ init_latents = img2img_pipe.vae.config.scaling_factor * init_latents
 
 import torch.nn.functional as F
 tensor_a_expanded = F.interpolate(direction_vector_filtered, size=(64, 96), mode='bilinear', align_corners=False)
-adjusted_latent_vector = init_latents + config.direction_weight
+adjusted_latent_vector = init_latents + config.direction_weight* tensor_a_expanded
 
 # Generate image with adjusted latent vector
 output = img2img_pipe(config.target_prompt, image=adjusted_latent_vector, num_inference_steps=config.i2i_inference_steps, guidance_scale=config.i2i_guidance_scale, output_type="latent")
