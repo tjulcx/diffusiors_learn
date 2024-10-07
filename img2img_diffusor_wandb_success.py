@@ -204,7 +204,7 @@ init_latents = img2img_pipe.vae.config.scaling_factor * init_latents
 
 import torch.nn.functional as F
 tensor_a_expanded = F.interpolate(direction_vector_filtered, size=(64, 96), mode='bilinear', align_corners=False)
-adjusted_latent_vector = init_latents + config.direction_weight * tensor_a_expanded
+adjusted_latent_vector = init_latents + config.direction_weight
 
 # Generate image with adjusted latent vector
 output = img2img_pipe(config.target_prompt, image=adjusted_latent_vector, num_inference_steps=config.i2i_inference_steps, guidance_scale=config.i2i_guidance_scale, output_type="latent")
