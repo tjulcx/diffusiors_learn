@@ -12,7 +12,26 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 from sklearn.manifold import TSNE
 # Initialize WandB
 wandb.init(project="img2img-dog-image-generation", name="standing_to_sitting_data_analysize")
+import torch.nn as nn
 
+class SimpleConvNet(nn.Module):
+    def __init__(self):
+        super(SimpleConvNet, self).__init__()
+        # 4通道输入
+        self.conv1 = nn.Conv2d(4, 16, kernel_size=3, stride=2, padding=1)  # 输出: 16 * 32 * 48
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1)  # 输出: 32 * 16 * 24
+        self.conv3 = nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1)  # 输出: 64 * 8 * 12
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))  # 全局池化，输出: 64 * 1 * 1
+    
+    def forward(self, x):
+        x = torch.relu(self.conv1(x))
+        x = torch.relu(self.conv2(x))
+        x = torch.relu(self.conv3(x))
+        x = self.pool(x)  # 通过全局池化将每个通道的值简化
+        return x.view(x.size(0), -1)  # 展平为1D向量
+
+# 定义网络
+model = SimpleConvNet()
 
 class Config:
     def __init__(self):
@@ -26,6 +45,7 @@ class Config:
         self.image_path = "https://elaine3240.wordpress.com/wp-content/uploads/2019/06/e69fb4e78aac-e9bb91e889b2.jpg"
         self.t2i_inference_steps = 50
         self.i2i_inference_steps = 50
+        self.intra_class_threshold = 0.1
 
 
 config = Config()
@@ -44,7 +64,7 @@ text2img_pipe.to(device)
 
 # 使用 t-SNE 降维
 def reduce_latents_to_2D(latents):
-    tsne = TSNE(n_components=2,perplexity=1, random_state=42)
+    tsne = TSNE(n_components=2,perplexity=30, random_state=42, learning_rate=200)
     reduced_data = tsne.fit_transform(latents.cpu().numpy())
     return reduced_data
 
@@ -91,14 +111,43 @@ latents_standing = text_generate_latents(config.source_prompt, num_images=config
 latents_sitting = text_generate_latents(config.target_prompt, num_images=config.sampleTimes)
 
 
-latents_standing_flat = latents_standing.view(latents_standing.size(0), -1)  # 形状变为 (num_samples, channels * height * width)
-latents_sitting_flat = latents_sitting.view(latents_sitting.size(0), -1)      # 同上
-print('latents_standing_flat_size',latents_standing_flat.size())
-print('latents_sitting_flat_size',latents_sitting_flat.size())
+# 提取特征
+features_standing = model(latents_standing)  # (num_samples, 64)
+features_sitting = model(latents_sitting)    # (num_samples, 64)
+
+# 计算每类特征的标准差 (类内变化率)
+std_standing = torch.std(features_standing, dim=0)  # Standing类的标准差
+std_sitting = torch.std(features_sitting, dim=0)    # Sitting类的标准差
+
+
+# 类内变化率阈值
+intra_class_threshold = 0.1  # 可以根据需要调整
+
+# 保留类内变化率小的维度（即标准差小于阈值的维度）
+class_within_threshold_standing = std_standing < intra_class_threshold
+class_within_threshold_sitting = std_sitting < intra_class_threshold
+
+# 找到同时满足两个类内变化率小的维度（取交集）
+final_mask = class_within_threshold_standing & class_within_threshold_sitting
+
+
+# 过滤特征：保留类内变化率小的维度
+filtered_features_standing = features_standing[:, final_mask]
+filtered_features_sitting = features_sitting[:, final_mask]
+
+# 将过滤后的特征降维到2D进行可视化
+tsne = TSNE(n_components=2, perplexity=30, learning_rate=200)
+reduced_standing = tsne.fit_transform(filtered_features_standing.cpu().numpy())
+reduced_sitting = tsne.fit_transform(filtered_features_sitting.cpu().numpy())
+
+# latents_standing_flat = latents_standing.view(latents_standing.size(0), -1)  # 形状变为 (num_samples, channels * height * width)
+# latents_sitting_flat = latents_sitting.view(latents_sitting.size(0), -1)      # 同上
+# print('latents_standing_flat_size',latents_standing_flat.size())
+# print('latents_sitting_flat_size',latents_sitting_flat.size())
 
 # 降维
-reduced_standing = reduce_latents_to_2D(latents_standing_flat)
-reduced_sitting = reduce_latents_to_2D(latents_sitting_flat)
+# reduced_standing = reduce_latents_to_2D(latents_standing_flat)
+# reduced_sitting = reduce_latents_to_2D(latents_sitting_flat)
 
 # # 合并数据并生成标签
 # combined_data = np.vstack((reduced_standing, reduced_sitting))
@@ -148,18 +197,18 @@ direction_vector = mean_sitting - mean_standing
 print(f"Direction vector (from standing to sitting): {direction_vector}")
 
 # Calculate the variability within each class (standard deviation)
-std_standing = torch.std(latents_standing, dim=0)
-std_sitting = torch.std(latents_sitting, dim=0)
+# std_standing = torch.std(latents_standing, dim=0)
+# std_sitting = torch.std(latents_sitting, dim=0)
 
 # Calculate inter-class variability (mean difference)
-inter_class_variability = torch.abs(mean_sitting - mean_standing)
+# inter_class_variability = torch.abs(mean_sitting - mean_standing)
 
 # Set thresholds
-class_within_threshold_standing = std_standing < 0.1
-class_within_threshold_sitting = std_sitting < 0.1
+# class_within_threshold_standing = std_standing < 0.1
+# class_within_threshold_sitting = std_sitting < 0.1
 
 # Create mask to retain high inter-class variability and zero out low intra-class variability
-final_mask = (inter_class_variability > 0.05) & ~(class_within_threshold_standing | class_within_threshold_sitting)
+# final_mask = (inter_class_variability > 0.05) & ~(class_within_threshold_standing | class_within_threshold_sitting)
 print(f"Number of dimensions after filtering: {final_mask.sum()}")
 
 # 应用过滤
