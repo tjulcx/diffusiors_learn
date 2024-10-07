@@ -32,7 +32,7 @@ class SimpleConvNet(nn.Module):
 
 # 定义网络
 model = SimpleConvNet()
-
+model = model.cuda()
 class Config:
     def __init__(self):
         self.sampleTimes = 30
@@ -107,8 +107,8 @@ response = requests.get(config.image_path)
 init_image_tensor = image_to_tensor(response.content).to(device)
 
 # Generate latent vectors for two categories
-latents_standing = text_generate_latents(config.source_prompt, num_images=config.sampleTimes)
-latents_sitting = text_generate_latents(config.target_prompt, num_images=config.sampleTimes)
+latents_standing = text_generate_latents(config.source_prompt, num_images=config.sampleTimes).cuda()
+latents_sitting = text_generate_latents(config.target_prompt, num_images=config.sampleTimes).cuda()
 
 
 # 提取特征
