@@ -79,6 +79,11 @@ std_sitting = torch.std(latents_sitting, dim=0)
 # Calculate inter-class variability (mean difference)
 inter_class_variability = torch.abs(mean_sitting - mean_standing)
 
+
+print("Inter-class variability:", inter_class_variability)
+print("Intra-class variability (Standing):", std_standing)
+print("Intra-class variability (Sitting):", std_sitting)
+
 # Set thresholds
 class_within_threshold_standing = std_standing < 0.1
 class_within_threshold_sitting = std_sitting < 0.1
