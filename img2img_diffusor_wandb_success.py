@@ -35,7 +35,7 @@ model = SimpleConvNet()
 model = model.cuda()
 class Config:
     def __init__(self):
-        self.sampleTimes = 30
+        self.sampleTimes = 50
         self.target_prompt = "A photo of a sitting dog"
         self.source_prompt = "A photo of a standing dog"
         self.model_name = "standing_to_sitting"
