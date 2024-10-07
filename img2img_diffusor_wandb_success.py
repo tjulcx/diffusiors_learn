@@ -137,8 +137,8 @@ filtered_features_sitting = features_sitting[:, final_mask]
 
 # 将过滤后的特征降维到2D进行可视化
 tsne = TSNE(n_components=2, perplexity=30, learning_rate=200)
-reduced_standing = tsne.fit_transform(filtered_features_standing.cpu().numpy())
-reduced_sitting = tsne.fit_transform(filtered_features_sitting.cpu().numpy())
+reduced_standing = tsne.fit_transform(filtered_features_standing.detach().cpu().numpy())
+reduced_sitting = tsne.fit_transform(filtered_features_sitting.detach().cpu().numpy())
 
 # latents_standing_flat = latents_standing.view(latents_standing.size(0), -1)  # 形状变为 (num_samples, channels * height * width)
 # latents_sitting_flat = latents_sitting.view(latents_sitting.size(0), -1)      # 同上
