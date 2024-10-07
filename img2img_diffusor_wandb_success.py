@@ -112,8 +112,8 @@ latents_sitting = text_generate_latents(config.target_prompt, num_images=config.
 
 
 # 提取特征
-features_standing = model(latents_standing)  # (num_samples, 64)
-features_sitting = model(latents_sitting)    # (num_samples, 64)
+features_standing = model(latents_standing.view(30, 4, 64, 64))  # (num_samples, 64)
+features_sitting = model(latents_sitting.view(30, 4, 64, 64))    # (num_samples, 64)
 
 # 计算每类特征的标准差 (类内变化率)
 std_standing = torch.std(features_standing, dim=0)  # Standing类的标准差
